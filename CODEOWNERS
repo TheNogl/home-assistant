@@ -1052,7 +1052,11 @@ tests/components/wolflink/* @adamkrol93
 homeassistant/components/workday/* @fabaff
 tests/components/workday/* @fabaff
 homeassistant/components/worldclock/* @fabaff
+<<<<<<< HEAD
 tests/components/worldclock/* @fabaff
+=======
+homeassistant/components/wunderground/* @TheNogl
+>>>>>>> 98b685c914 (Add WUnderground integration using new API)
 homeassistant/components/xbox/* @hunterjm
 tests/components/xbox/* @hunterjm
 homeassistant/components/xbox_live/* @MartinHjelmare
