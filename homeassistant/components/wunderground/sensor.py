@@ -2,27 +2,32 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import timedelta
+
+# from datetime import timedelta
 import logging
 import re
 from typing import Any, Callable
 
 import aiohttp
 import async_timeout
-import voluptuous as vol
 
+# import voluptuous as vol
+from homeassistant import config_entries, core
 from homeassistant.components import sensor
-from homeassistant.components.sensor import (
-    PLATFORM_SCHEMA,
+from homeassistant.components.sensor import (  # PLATFORM_SCHEMA,
     STATE_CLASS_MEASUREMENT,
     SensorEntity,
 )
-from homeassistant.const import (
+from homeassistant.components.wunderground.config_flow import (
+    CONF_MONITORED_FORECASTS,
+    CONF_MONITORED_MEASUREMENTS,
+    CONF_MONITORED_METADATA,
+)
+from homeassistant.const import (  # CONF_MONITORED_CONDITIONS,
     ATTR_ATTRIBUTION,
     CONF_API_KEY,
     CONF_LATITUDE,
     CONF_LONGITUDE,
-    CONF_MONITORED_CONDITIONS,
     DEGREE,
     IRRADIATION_WATTS_PER_SQUARE_METER,
     LENGTH_FEET,
@@ -41,30 +46,51 @@ from homeassistant.const import (
 )
 from homeassistant.exceptions import PlatformNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-import homeassistant.helpers.config_validation as cv
-from homeassistant.helpers.typing import ConfigType, HomeAssistantType
+
+# import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers.typing import (  # ConfigType, HomeAssistantType
+    HomeAssistantType,
+)
 from homeassistant.util import Throttle
 
-_RESOURCECURRENT = "https://api.weather.com/v2/pws/observations/current?stationId={}&format=json&units={}&apiKey={}"
-_RESOURCEFORECAST = "https://api.weather.com/v3/wx/forecast/daily/5day?geocode={},{}&units={}&{}&format=json&apiKey={}"
+from .const import (
+    _RESOURCECURRENT,
+    _RESOURCEFORECAST,
+    ALTITUDEUNIT,
+    CONF_ATTRIBUTION,
+    CONF_LANG,
+    CONF_NUMERIC_PRECISION,
+    CONF_PWS_ID,
+    DOMAIN,
+    LENGTHUNIT,
+    MIN_TIME_BETWEEN_UPDATES,
+    PERCENTAGEUNIT,
+    PRESSUREUNIT,
+    RATE,
+    SPEEDUNIT,
+    TEMPUNIT,
+)
+
+# _RESOURCECURRENT = "https://api.weather.com/v2/pws/observations/current?stationId={}&format=json&units={}&apiKey={}"
+# _RESOURCEFORECAST = "https://api.weather.com/v3/wx/forecast/daily/5day?geocode={},{}&units={}&{}&format=json&apiKey={}"
 _LOGGER = logging.getLogger(__name__)
 
-CONF_ATTRIBUTION = "Data provided by the WUnderground weather service"
-CONF_PWS_ID = "pws_id"
-CONF_NUMERIC_PRECISION = "numeric_precision"
-CONF_LANG = "lang"
+# CONF_ATTRIBUTION = "Data provided by the WUnderground weather service"
+# CONF_PWS_ID = "pws_id"
+# CONF_NUMERIC_PRECISION = "numeric_precision"
+# CONF_LANG = "lang"
 
-DEFAULT_LANG = "en-US"
+# DEFAULT_LANG = "en-US"
 
-MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=5)
+# MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=5)
 
-TEMPUNIT = 0
-LENGTHUNIT = 1
-ALTITUDEUNIT = 2
-SPEEDUNIT = 3
-PRESSUREUNIT = 4
-RATE = 5
-PERCENTAGEUNIT = 6
+# TEMPUNIT = 0
+# LENGTHUNIT = 1
+# ALTITUDEUNIT = 2
+# SPEEDUNIT = 3
+# PRESSUREUNIT = 4
+# RATE = 5
+# PERCENTAGEUNIT = 6
 
 
 # Helper classes for declaring sensor configurations
@@ -486,146 +512,167 @@ SENSOR_TYPES = {
 }
 
 # Language Supported Codes
-LANG_CODES = [
-    "ar-AE",
-    "az-AZ",
-    "bg-BG",
-    "bn-BD",
-    "bn-IN",
-    "bs-BA",
-    "ca-ES",
-    "cs-CZ",
-    "da-DK",
-    "de-DE",
-    "el-GR",
-    "en-GB",
-    "en-IN",
-    "en-US",
-    "es-AR",
-    "es-ES",
-    "es-LA",
-    "es-MX",
-    "es-UN",
-    "es-US",
-    "et-EE",
-    "fa-IR",
-    "fi-FI",
-    "fr-CA",
-    "fr-FR",
-    "gu-IN",
-    "he-IL",
-    "hi-IN",
-    "hr-HR",
-    "hu-HU",
-    "in-ID",
-    "is-IS",
-    "it-IT",
-    "iw-IL",
-    "ja-JP",
-    "jv-ID",
-    "ka-GE",
-    "kk-KZ",
-    "kn-IN",
-    "ko-KR",
-    "lt-LT",
-    "lv-LV",
-    "mk-MK",
-    "mn-MN",
-    "ms-MY",
-    "nl-NL",
-    "no-NO",
-    "pl-PL",
-    "pt-BR",
-    "pt-PT",
-    "ro-RO",
-    "ru-RU",
-    "si-LK",
-    "sk-SK",
-    "sl-SI",
-    "sq-AL",
-    "sr-BA",
-    "sr-ME",
-    "sr-RS",
-    "sv-SE",
-    "sw-KE",
-    "ta-IN",
-    "ta-LK",
-    "te-IN",
-    "tg-TJ",
-    "th-TH",
-    "tk-TM",
-    "tl-PH",
-    "tr-TR",
-    "uk-UA",
-    "ur-PK",
-    "uz-UZ",
-    "vi-VN",
-    "zh-CN",
-    "zh-HK",
-    "zh-TW",
-]
-
-PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
-    {
-        vol.Required(CONF_API_KEY): cv.string,
-        vol.Required(CONF_PWS_ID): cv.string,
-        vol.Required(CONF_NUMERIC_PRECISION): cv.string,
-        vol.Optional(CONF_LANG, default=DEFAULT_LANG): vol.All(vol.In(LANG_CODES)),
-        vol.Inclusive(
-            CONF_LATITUDE, "coordinates", "Latitude and longitude must exist together"
-        ): cv.latitude,
-        vol.Inclusive(
-            CONF_LONGITUDE, "coordinates", "Latitude and longitude must exist together"
-        ): cv.longitude,
-        vol.Required(CONF_MONITORED_CONDITIONS): vol.All(
-            cv.ensure_list, vol.Length(min=1), [vol.In(SENSOR_TYPES)]
-        ),
-    }
-)
+# LANG_CODES = [
+#     "ar-AE",
+#     "az-AZ",
+#     "bg-BG",
+#     "bn-BD",
+#     "bn-IN",
+#     "bs-BA",
+#     "ca-ES",
+#     "cs-CZ",
+#     "da-DK",
+#     "de-DE",
+#     "el-GR",
+#     "en-GB",
+#     "en-IN",
+#     "en-US",
+#     "es-AR",
+#     "es-ES",
+#     "es-LA",
+#     "es-MX",
+#     "es-UN",
+#     "es-US",
+#     "et-EE",
+#     "fa-IR",
+#     "fi-FI",
+#     "fr-CA",
+#     "fr-FR",
+#     "gu-IN",
+#     "he-IL",
+#     "hi-IN",
+#     "hr-HR",
+#     "hu-HU",
+#     "in-ID",
+#     "is-IS",
+#     "it-IT",
+#     "iw-IL",
+#     "ja-JP",
+#     "jv-ID",
+#     "ka-GE",
+#     "kk-KZ",
+#     "kn-IN",
+#     "ko-KR",
+#     "lt-LT",
+#     "lv-LV",
+#     "mk-MK",
+#     "mn-MN",
+#     "ms-MY",
+#     "nl-NL",
+#     "no-NO",
+#     "pl-PL",
+#     "pt-BR",
+#     "pt-PT",
+#     "ro-RO",
+#     "ru-RU",
+#     "si-LK",
+#     "sk-SK",
+#     "sl-SI",
+#     "sq-AL",
+#     "sr-BA",
+#     "sr-ME",
+#     "sr-RS",
+#     "sv-SE",
+#     "sw-KE",
+#     "ta-IN",
+#     "ta-LK",
+#     "te-IN",
+#     "tg-TJ",
+#     "th-TH",
+#     "tk-TM",
+#     "tl-PH",
+#     "tr-TR",
+#     "uk-UA",
+#     "ur-PK",
+#     "uz-UZ",
+#     "vi-VN",
+#     "zh-CN",
+#     "zh-HK",
+#     "zh-TW",
+# ]
 
 
-async def async_setup_platform(
-    hass: HomeAssistantType, config: ConfigType, async_add_entities, discovery_info=None
+# async def async_setup_platform(
+#     hass: HomeAssistantType, config: ConfigType, async_add_entities, discovery_info=None
+# ):
+#     """Set up the WUnderground sensor."""
+#     latitude = config.get(CONF_LATITUDE, hass.config.latitude)
+#     longitude = config.get(CONF_LONGITUDE, hass.config.longitude)
+#     pws_id = config.get(CONF_PWS_ID)
+#     numeric_precision = config.get(CONF_NUMERIC_PRECISION)
+
+#     if hass.config.units.is_metric:
+#         unit_system_api = "m"
+#         unit_system = "metric"
+#     else:
+#         unit_system_api = "e"
+#         unit_system = "imperial"
+
+#     rest = WUndergroundData(
+#         hass,
+#         config.get(CONF_API_KEY),
+#         pws_id,
+#         numeric_precision,
+#         unit_system_api,
+#         unit_system,
+#         config.get(CONF_LANG),
+#         latitude,
+#         longitude,
+#     )
+
+#     if pws_id is None:
+#         unique_id_base = f"@{longitude:06f},{latitude:06f}"
+#     else:
+#         # Manually specified weather station, use that for unique_id
+#         unique_id_base = pws_id
+#     sensors = []
+#     for variable in config[CONF_MONITORED_CONDITIONS]:
+#         sensors.append(WUndergroundSensor(hass, rest, variable, unique_id_base))
+
+#     await rest.async_update()
+#     if not rest.data:
+#         raise PlatformNotReady
+
+#     async_add_entities(sensors, True)
+async def async_setup_entry(
+    hass: core.HomeAssistant,
+    config_entry: config_entries.ConfigEntry,
+    async_add_entities,
 ):
-    """Set up the WUnderground sensor."""
-    latitude = config.get(CONF_LATITUDE, hass.config.latitude)
-    longitude = config.get(CONF_LONGITUDE, hass.config.longitude)
-    pws_id = config.get(CONF_PWS_ID)
-    numeric_precision = config.get(CONF_NUMERIC_PRECISION)
-
+    """Set up chosen sensors."""
+    config = hass.data[DOMAIN][config_entry.entry_id]
+    # session = async_get_clientsession(hass)
     if hass.config.units.is_metric:
         unit_system_api = "m"
         unit_system = "metric"
     else:
         unit_system_api = "e"
         unit_system = "imperial"
-
+    unique_id_base = config.get(CONF_PWS_ID)
+    sensors = []
     rest = WUndergroundData(
         hass,
         config.get(CONF_API_KEY),
-        pws_id,
-        numeric_precision,
+        config.get(CONF_PWS_ID),
+        config.get(CONF_NUMERIC_PRECISION),
         unit_system_api,
         unit_system,
         config.get(CONF_LANG),
-        latitude,
-        longitude,
+        config.get(CONF_LATITUDE, hass.config.latitude),
+        config.get(CONF_LONGITUDE, hass.config.longitude),
     )
-
-    if pws_id is None:
-        unique_id_base = f"@{longitude:06f},{latitude:06f}"
-    else:
-        # Manually specified weather station, use that for unique_id
-        unique_id_base = pws_id
-    sensors = []
-    for variable in config[CONF_MONITORED_CONDITIONS]:
+    for variable in config[CONF_MONITORED_MEASUREMENTS]:
         sensors.append(WUndergroundSensor(hass, rest, variable, unique_id_base))
-
+    for variable in config[CONF_MONITORED_FORECASTS]:
+        sensors.append(WUndergroundSensor(hass, rest, variable, unique_id_base))
+    for variable in config[CONF_MONITORED_METADATA]:
+        sensors.append(WUndergroundSensor(hass, rest, variable, unique_id_base))
     await rest.async_update()
     if not rest.data:
         raise PlatformNotReady
-
-    async_add_entities(sensors, True)
+    # github = GitHubAPI(session, "requester", oauth_token=config[CONF_ACCESS_TOKEN])
+    # sensors = [GitHubRepoSensor(github, repo) for repo in config[CONF_REPOS]]
+    async_add_entities(sensors, update_before_add=True)
 
 
 class WUndergroundSensor(SensorEntity):

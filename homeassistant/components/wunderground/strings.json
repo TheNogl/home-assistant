@@ -1,0 +1,24 @@
+{
+    "config": {
+        "flow_title": "{site ({host})",
+        "step": {
+            "user": {
+              "title": "Set up WUnderground API",
+              "data": {
+                  "api_key": "API Key",
+                  "pws_id": "Personal Weather Station ID",
+                  "numeric_precision": "Precision",
+                  "lang": "Language"
+              }
+            },
+            "conditions": {
+                "title": "Select Entities",
+                "data": {
+                    "monitored_measurements": "Measurements",
+                    "monitored_forecasts": "Forecasts",
+                    "monitored_metadata": "Metadata"
+                }
+            }
+        }
+    }
+}
