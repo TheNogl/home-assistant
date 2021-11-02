@@ -1,36 +1,54 @@
 """The Wunderground integration."""
-# from __future__ import annotations
-
-# from homeassistant.config_entries import ConfigEntry
-# from homeassistant.core import HomeAssistant
-
-# from .const import DOMAIN
-
-# List the platforms that you want to support.
-# For your initial PR, limit it to 1 platform.
-# PLATFORMS: list[str] = ["sensor"]
-
-
-# async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-# """Set up Wunderground from a config entry."""
-# Store an API object for your platforms to access
-# hass.data[DOMAIN][entry.entry_id] = MyApi(...)
-
-# hass.config_entries.async_setup_platforms(entry, PLATFORMS)
-
-# return True
-
-
-# async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-# """Unload a config entry."""
-# unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-# if unload_ok:
-# hass.data[DOMAIN].pop(entry.entry_id)
-
-# return unload_ok
 from homeassistant import config_entries, core
+from homeassistant.config_entries import SOURCE_IMPORT
+from homeassistant.const import CONF_API_KEY, CONF_LATITUDE, CONF_LONGITUDE
 
-from .const import DOMAIN
+from .const import (
+    CONF_LANG,
+    CONF_MONITORED_FORECASTS,
+    CONF_MONITORED_MEASUREMENTS,
+    CONF_MONITORED_METADATA,
+    CONF_NUMERIC_PRECISION,
+    CONF_PWS_ID,
+    DOMAIN,
+)
+
+
+async def async_setup(hass, config):
+    """Set up the WUnderground Component."""
+    if DOMAIN not in config:
+        return True
+
+    conf = config[DOMAIN]
+    api_key = conf[CONF_API_KEY]
+    pws_id = conf[CONF_PWS_ID]
+    numeric_precision = conf.get(CONF_NUMERIC_PRECISION)
+    latitude = conf.get(CONF_LATITUDE, hass.config.latitude)
+    longitude = conf.get(CONF_LONGITUDE, hass.config.longitude)
+    lang = conf[CONF_LANG]
+    monitored_measurements = conf.get(CONF_MONITORED_MEASUREMENTS, None)
+    monitored_forecasts = conf.get(CONF_MONITORED_FORECASTS, None)
+    monitored_metadata = conf.get(CONF_MONITORED_METADATA, None)
+
+    hass.async_create_task(
+        hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={"source": SOURCE_IMPORT},
+            data={
+                CONF_API_KEY: api_key,
+                CONF_PWS_ID: pws_id,
+                CONF_NUMERIC_PRECISION: numeric_precision,
+                CONF_LATITUDE: latitude,
+                CONF_LONGITUDE: longitude,
+                CONF_LANG: lang,
+                CONF_MONITORED_MEASUREMENTS: monitored_measurements,
+                CONF_MONITORED_FORECASTS: monitored_forecasts,
+                CONF_MONITORED_METADATA: monitored_metadata,
+            },
+        )
+    )
+
+    return True
 
 
 async def async_setup_entry(
