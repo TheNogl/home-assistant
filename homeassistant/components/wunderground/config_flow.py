@@ -9,7 +9,9 @@ from homeassistant.core import callback
 import homeassistant.helpers.config_validation as cv
 
 from .const import (
+    API_CATEGORIES,
     CONF_LANG,
+    CONF_MONITORED_CATEGORIES,
     CONF_MONITORED_FORECASTS,
     CONF_MONITORED_MEASUREMENTS,
     CONF_MONITORED_METADATA,
@@ -33,14 +35,17 @@ api_schema = vol.Schema(
     }
 )
 
-conditions_schema = vol.Schema(
-    {
-        vol.Optional(CONF_MONITORED_MEASUREMENTS): cv.multi_select(
-            SENSOR_TYPES_MEASUREMENTS
-        ),
-        vol.Optional(CONF_MONITORED_FORECASTS): cv.multi_select(SENSOR_TYPES_FORECAST),
-        vol.Optional(CONF_MONITORED_METADATA): cv.multi_select(SENSOR_TYPES_METADATA),
-    }
+# conditions_schema = vol.Schema(
+#     {
+#         vol.Optional(CONF_MONITORED_MEASUREMENTS): cv.multi_select(
+#             SENSOR_TYPES_MEASUREMENTS
+#         ),
+#         vol.Optional(CONF_MONITORED_FORECASTS): cv.multi_select(SENSOR_TYPES_FORECAST),
+#         vol.Optional(CONF_MONITORED_METADATA): cv.multi_select(SENSOR_TYPES_METADATA),
+#     }
+# )
+categories_schema = vol.Schema(
+    {vol.Required(CONF_MONITORED_CATEGORIES): cv.multi_select(API_CATEGORIES)}
 )
 
 import_schema = vol.Schema(
@@ -103,13 +108,20 @@ class WUndergroundConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if user_input[CONF_PWS_ID] in configured_sensors(self.hass):
                 return self._show_form({CONF_PWS_ID: "already_configured"})
             self.data.update(user_input)
-            return await self.async_step_conditions()
+            # return await self.async_step_conditions()
+            return await self.async_step_categories()
 
         return self.async_show_form(step_id="user", data_schema=api_schema)
 
-    async def async_step_conditions(self, user_input=None):
-        """Config Flow monitored conditions selection."""
+    # async def async_step_conditions(self, user_input=None):
+    #     """Config Flow monitored conditions selection."""
+    #     if user_input is not None:
+    #         self.data.update(user_input)
+    #         return self.async_create_entry(title="WUnderground", data=self.data)
+    #     return self.async_show_form(step_id="conditions", data_schema=conditions_schema)
+    async def async_step_categories(self, user_input=None):
+        """Config Flow monitored categories selection."""
         if user_input is not None:
             self.data.update(user_input)
             return self.async_create_entry(title="WUnderground", data=self.data)
-        return self.async_show_form(step_id="conditions", data_schema=conditions_schema)
+        return self.async_show_form(step_id="categories", data_schema=categories_schema)

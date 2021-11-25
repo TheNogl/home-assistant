@@ -10,14 +10,29 @@ CONF_LANG = "lang"
 CONF_MONITORED_MEASUREMENTS = "monitored_measurements"
 CONF_MONITORED_FORECASTS = "monitored_forecasts"
 CONF_MONITORED_METADATA = "monitored_metadata"
+CONF_MONITORED_CATEGORIES = "monitored_categories"
 
 DEFAULT_LANG = "en-US"
+
+# API_CATEGORIES = {
+#     "measurements": "Measurements",
+#     "forecasts": "Forecasts",
+#     "information": "Weather Station Information",
+# }
+
+API_CATEGORIES = {
+    CONF_MONITORED_MEASUREMENTS: "Measurements",
+    CONF_MONITORED_FORECASTS: "Forecasts",
+    # CONF_MONITORED_METADATA: "Weather Station Information",
+}
 
 SENSOR_TYPES_METADATA = {
     "neighborhood": "Weather Station Reference Name",
     "obsTimeLocal": "Weather Station Local Time",
     "stationID": "Weather Station ID",
     "elev": "Weather Station Elevation",
+    "qcStatus": "Quality Check Status",
+    # "realtimeFrequency": "Data Report Frequency"
 }
 SENSOR_TYPES_MEASUREMENTS = {
     "humidity": "Humidity",

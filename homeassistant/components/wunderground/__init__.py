@@ -3,11 +3,9 @@ from homeassistant import config_entries, core
 from homeassistant.config_entries import SOURCE_IMPORT
 from homeassistant.const import CONF_API_KEY, CONF_LATITUDE, CONF_LONGITUDE
 
-from .const import (
+from .const import (  # CONF_MONITORED_FORECASTS,; CONF_MONITORED_MEASUREMENTS,; CONF_MONITORED_METADATA,
     CONF_LANG,
-    CONF_MONITORED_FORECASTS,
-    CONF_MONITORED_MEASUREMENTS,
-    CONF_MONITORED_METADATA,
+    CONF_MONITORED_CATEGORIES,
     CONF_NUMERIC_PRECISION,
     CONF_PWS_ID,
     DOMAIN,
@@ -26,9 +24,10 @@ async def async_setup(hass, config):
     latitude = conf.get(CONF_LATITUDE, hass.config.latitude)
     longitude = conf.get(CONF_LONGITUDE, hass.config.longitude)
     lang = conf[CONF_LANG]
-    monitored_measurements = conf.get(CONF_MONITORED_MEASUREMENTS, None)
-    monitored_forecasts = conf.get(CONF_MONITORED_FORECASTS, None)
-    monitored_metadata = conf.get(CONF_MONITORED_METADATA, None)
+    monitored_categories = conf.get(CONF_MONITORED_CATEGORIES)
+    # monitored_measurements = conf.get(CONF_MONITORED_MEASUREMENTS, None)
+    # monitored_forecasts = conf.get(CONF_MONITORED_FORECASTS, None)
+    # monitored_metadata = conf.get(CONF_MONITORED_METADATA, None)
 
     hass.async_create_task(
         hass.config_entries.flow.async_init(
@@ -41,9 +40,10 @@ async def async_setup(hass, config):
                 CONF_LATITUDE: latitude,
                 CONF_LONGITUDE: longitude,
                 CONF_LANG: lang,
-                CONF_MONITORED_MEASUREMENTS: monitored_measurements,
-                CONF_MONITORED_FORECASTS: monitored_forecasts,
-                CONF_MONITORED_METADATA: monitored_metadata,
+                # CONF_MONITORED_MEASUREMENTS: monitored_measurements,
+                # CONF_MONITORED_FORECASTS: monitored_forecasts,
+                # CONF_MONITORED_METADATA: monitored_metadata,
+                CONF_MONITORED_CATEGORIES: monitored_categories,
             },
         )
     )

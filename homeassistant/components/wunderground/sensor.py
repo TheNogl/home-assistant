@@ -12,10 +12,9 @@ import async_timeout
 from homeassistant import config_entries, core
 from homeassistant.components import sensor
 from homeassistant.components.sensor import STATE_CLASS_MEASUREMENT, SensorEntity
-from homeassistant.components.wunderground.config_flow import (
+from homeassistant.components.wunderground.config_flow import (  # CONF_MONITORED_METADATA,
     CONF_MONITORED_FORECASTS,
     CONF_MONITORED_MEASUREMENTS,
-    CONF_MONITORED_METADATA,
 )
 from homeassistant.const import (
     ATTR_ATTRIBUTION,
@@ -23,6 +22,7 @@ from homeassistant.const import (
     CONF_LATITUDE,
     CONF_LONGITUDE,
     DEGREE,
+    ENTITY_CATEGORY_DIAGNOSTIC,
     IRRADIATION_WATTS_PER_SQUARE_METER,
     LENGTH_FEET,
     LENGTH_INCHES,
@@ -49,6 +49,7 @@ from .const import (
     ALTITUDEUNIT,
     CONF_ATTRIBUTION,
     CONF_LANG,
+    CONF_MONITORED_CATEGORIES,
     CONF_NUMERIC_PRECISION,
     CONF_PWS_ID,
     DOMAIN,
@@ -57,6 +58,9 @@ from .const import (
     PERCENTAGEUNIT,
     PRESSUREUNIT,
     RATE,
+    SENSOR_TYPES_FORECAST,
+    SENSOR_TYPES_MEASUREMENTS,
+    SENSOR_TYPES_METADATA,
     SPEEDUNIT,
     TEMPUNIT,
 )
@@ -85,6 +89,7 @@ class WUSensorConfig:
         | None = None,
         device_class: str | None = None,
         state_class: str | None = None,
+        entity_category: str | None = None,
     ) -> None:
         """Initialize sensor configuration.
 
@@ -110,6 +115,7 @@ class WUSensorConfig:
         self.device_state_attributes = device_state_attributes or {}
         self.device_class = device_class
         self.state_class = state_class
+        self.entity_category = entity_category
 
 
 class WUCurrentConditionsSensorConfig(WUSensorConfig):
@@ -123,6 +129,7 @@ class WUCurrentConditionsSensorConfig(WUSensorConfig):
         unit_of_measurement: int = None,
         device_class: str | None = None,
         state_class: str | None = None,
+        entity_category: str | None = None,
     ) -> None:
         """Initialize current conditions sensor configuration.
 
@@ -145,6 +152,7 @@ class WUCurrentConditionsSensorConfig(WUSensorConfig):
             },
             device_class=device_class,
             state_class=state_class,
+            entity_category=entity_category,
         )
 
 
@@ -219,12 +227,29 @@ SENSOR_TYPES = {
         "observations",
         value=lambda wu: wu.data["observations"][0]["neighborhood"],
         icon="mdi:map-marker",
+        entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
     ),
     "obsTimeLocal": WUSensorConfig(
         "Local Observation Time",
         "observations",
         value=lambda wu: wu.data["observations"][0]["obsTimeLocal"],
         icon="mdi:clock",
+        entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+    ),
+    "stationID": WUSensorConfig(
+        "Station ID",
+        "observations",
+        value=lambda wu: wu.data["observations"][0]["stationID"],
+        icon="mdi:home",
+        entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+    ),
+    "qcStatus": WUSensorConfig(
+        "Quality Check",
+        "observations",
+        value=lambda wu: str(wu.data["observations"][0]["qcStatus"]),
+        unit_of_measurement="",
+        icon="mdi:database-alert",
+        entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
     ),
     "humidity": WUSensorConfig(
         "Relative Humidity",
@@ -234,12 +259,6 @@ SENSOR_TYPES = {
         icon="mdi:water-percent",
         device_class="humidity",
         state_class=STATE_CLASS_MEASUREMENT,
-    ),
-    "stationID": WUSensorConfig(
-        "Station ID",
-        "observations",
-        value=lambda wu: wu.data["observations"][0]["stationID"],
-        icon="mdi:home",
     ),
     "solarRadiation": WUSensorConfig(
         "Solar Radiation",
@@ -264,16 +283,21 @@ SENSOR_TYPES = {
         unit_of_measurement=DEGREE,
         icon="mdi:weather-windy",
     ),
-    "today_summary": WUSensorConfig(
-        "Today Summary",
-        "observations",
-        value=lambda wu: str(wu.data["narrative"][0]),
-        unit_of_measurement="",
-        icon="mdi:gauge",
-    ),
+    # "elev": WUSensorConfig(
+    #     "Elevation",
+    #     "elev",
+    #     value=lambda wu: str(wu.data["observations"][0]["elev"]),
+    #     unit_of_measurement=ALTITUDEUNIT,
+    #     icon="mdi:elevation-rise",
+    #     entity_category="diagnostic",
+    # ),
     # current conditions
     "elev": WUCurrentConditionsSensorConfig(
-        "Elevation", "elev", "mdi:elevation-rise", ALTITUDEUNIT
+        "Elevation",
+        "elev",
+        "mdi:elevation-rise",
+        ALTITUDEUNIT,
+        entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
     ),
     "dewpt": WUCurrentConditionsSensorConfig(
         "Dewpoint", "dewpt", "mdi:water", TEMPUNIT
@@ -325,6 +349,13 @@ SENSOR_TYPES = {
         state_class=STATE_CLASS_MEASUREMENT,
     ),
     # forecast
+    "today_summary": WUSensorConfig(
+        "Today Summary",
+        "forecast",
+        value=lambda wu: str(wu.data["narrative"][0]),
+        unit_of_measurement="",
+        icon="mdi:gauge",
+    ),
     "weather_1d": WUDailyTextForecastSensorConfig(0),
     "weather_1n": WUDailyTextForecastSensorConfig(1),
     "weather_2d": WUDailyTextForecastSensorConfig(2),
@@ -509,12 +540,23 @@ async def async_setup_entry(
         config.get(CONF_LATITUDE, hass.config.latitude),
         config.get(CONF_LONGITUDE, hass.config.longitude),
     )
-    for variable in config[CONF_MONITORED_MEASUREMENTS]:
-        sensors.append(WUndergroundSensor(hass, rest, variable, unique_id_base))
-    for variable in config[CONF_MONITORED_FORECASTS]:
-        sensors.append(WUndergroundSensor(hass, rest, variable, unique_id_base))
-    for variable in config[CONF_MONITORED_METADATA]:
-        sensors.append(WUndergroundSensor(hass, rest, variable, unique_id_base))
+    if CONF_MONITORED_MEASUREMENTS in config[CONF_MONITORED_CATEGORIES]:
+        for variable in SENSOR_TYPES_MEASUREMENTS:
+            sensors.append(WUndergroundSensor(hass, rest, variable, unique_id_base))
+        for variable in SENSOR_TYPES_METADATA:
+            sensors.append(WUndergroundSensor(hass, rest, variable, unique_id_base))
+    if CONF_MONITORED_FORECASTS in config[CONF_MONITORED_CATEGORIES]:
+        for variable in SENSOR_TYPES_FORECAST:
+            sensors.append(WUndergroundSensor(hass, rest, variable, unique_id_base))
+    # if CONF_MONITORED_METADATA in config[CONF_MONITORED_CATEGORIES]:
+    #     for variable in SENSOR_TYPES_METADATA:
+    #         sensors.append(WUndergroundSensor(hass, rest, variable, unique_id_base))
+    # for variable in config[CONF_MONITORED_MEASUREMENTS]:
+    #     sensors.append(WUndergroundSensor(hass, rest, variable, unique_id_base))
+    # for variable in config[CONF_MONITORED_FORECASTS]:
+    #     sensors.append(WUndergroundSensor(hass, rest, variable, unique_id_base))
+    # for variable in config[CONF_MONITORED_METADATA]:
+    #     sensors.append(WUndergroundSensor(hass, rest, variable, unique_id_base))
     await rest.async_update()
     if not rest.data:
         raise PlatformNotReady
@@ -544,6 +586,7 @@ class WUndergroundSensor(SensorEntity):
         self._unique_id = f"{unique_id_base},{condition}"
         self._device_class = self._cfg_expand("device_class")
         self._state_class = self._cfg_expand("state_class")
+        self._entity_category = self._cfg_expand("entity_category")
 
     def _cfg_expand(self, what, default=None):
         """Parse and return sensor data."""
@@ -622,6 +665,11 @@ class WUndergroundSensor(SensorEntity):
     def state_class(self):
         """Return the state class."""
         return self._state_class
+
+    @property
+    def entity_category(self):
+        """Return the entity category."""
+        return self._entity_category
 
     async def async_update(self):
         """Update current conditions."""
@@ -725,28 +773,33 @@ class WUndergroundData:
     async def async_update(self):
         """Get the latest data from WUnderground."""
         headers = {"Accept-Encoding": "gzip"}
+        result_current = {}  # Don't know if needed
+        result_forecast = {}
         try:
-            with async_timeout.timeout(10, loop=self._hass.loop):
-                response = await self._session.get(
-                    self._build_url(_RESOURCECURRENT), headers=headers
-                )
-            result_current = await response.json()
+            if "conditions" in self._features:
+                with async_timeout.timeout(10, loop=self._hass.loop):
+                    response = await self._session.get(
+                        self._build_url(_RESOURCECURRENT), headers=headers
+                    )
+                result_current = await response.json()
 
-            if result_current is None:
-                raise ValueError("NO CURRENT RESULT")
-            with async_timeout.timeout(10, loop=self._hass.loop):
-                response = await self._session.get(
-                    self._build_url(_RESOURCEFORECAST), headers=headers
-                )
-            result_forecast = await response.json()
+                if result_current is None:
+                    raise ValueError("NO CURRENT RESULT")
 
-            if result_forecast is None:
-                raise ValueError("NO FORECAST RESULT")
+            if "forecast" in self._features:
+                with async_timeout.timeout(10, loop=self._hass.loop):
+                    response = await self._session.get(
+                        self._build_url(_RESOURCEFORECAST), headers=headers
+                    )
+                result_forecast = await response.json()
+
+                if result_forecast is None:
+                    raise ValueError("NO FORECAST RESULT")
 
             result = {**result_current, **result_forecast}
 
             self.data = result
         except ValueError as err:
-            _LOGGER.error("Check WUnderground API %s", err.args)
+            _LOGGER.error("Check WUnderground API: %s", err.args)
         except (asyncio.TimeoutError, aiohttp.ClientError) as err:
             _LOGGER.error("Error fetching WUnderground data: %s", repr(err))
